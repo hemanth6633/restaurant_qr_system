@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Rate Your Waiter{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h2 class="card-title mb-4">Rate Your Experience</h2>
+                    
+                    <div class="waiter-info mb-4">
+                        <h3>{{ waiter.full_name }}</h3>
+                    </div>
+
+                    <form id="reviewForm" method="POST" action="{% url 'restaurant:submit_waiter_review' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="waiter_id" value="{{ waiter.id }}">
+                        <input type="hidden" name="tip_id" value="{{ tip_id }}">
+                        
+                        <div class="rating-container mb-4">
+                            <div class="stars">
+                                {% for i in "54321"|make_list %}
+                                <input type="radio" id="star{{ i }}" name="rating" value="{{ i }}" required>
+                                <label for="star{{ i }}" class="star">
+                                    <i class="fas fa-star"></i>
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <div class="form-group mb-4">
+                            <textarea class="form-control" name="comment" rows="4" placeholder="Share your experience (optional)"></textarea>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-lg">Submit Review</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .rating-container {
+        direction: rtl;
+        text-align: center;
+    }
+
+    .stars {
+        display: inline-block;
+    }
+
+    .stars input[type="radio"] {
+        display: none;
+    }
+
+    .stars label {
+        color: #ddd;
+        font-size: 2em;
+        padding: 0 0.1em;
+        cursor: pointer;
+    }
+
+    .stars label:hover,
+    .stars label:hover ~ label,
+    .stars input[type="radio"]:checked ~ label {
+        color: #ffd700;
+    }
+
+    .waiter-info img {
+        border: 3px solid #007bff;
+    }
+</style>
+{% endblock %}

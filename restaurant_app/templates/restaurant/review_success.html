@@ -1,0 +1,179 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Review Submitted{% endblock %}
+
+{% block content %}
+<div class="success-container">
+    <div class="background-overlay"></div>
+    <div class="content-wrapper">
+        <div class="success-card">
+            <div class="success-icon">
+                <i class="fas fa-check-circle fa-4x"></i>
+            </div>
+            <h1 class="main-title">Thank You!</h1>
+            <div class="decorative-line"></div>
+            <p class="message">Your review has been submitted successfully.</p>
+            <p class="sub-message">We appreciate your feedback!</p>
+            <a href="{% url 'restaurant:welcome' %}" class="home-button">
+                <span>Return Home</span>
+                <i class="fas fa-home ms-2"></i>
+            </a>
+        </div>
+    </div>
+</div>
+
+<style>
+.success-container {
+    min-height: 100vh;
+    background: linear-gradient(45deg, #0a192f 0%, #20314e 100%);
+    padding: 2rem;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.background-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg width="20" height="20" xmlns="http://www.w3.org/2000/svg"><rect width="20" height="20" fill="none"/><circle cx="3" cy="3" r="0.5" fill="rgba(255,255,255,0.1)"/></svg>') repeat;
+    opacity: 0.5;
+}
+
+.content-wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.success-card {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    padding: 3rem 2rem;
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    animation: fadeIn 1s ease-out;
+}
+
+.success-icon {
+    width: 120px;
+    height: 120px;
+    background: linear-gradient(45deg, #4CAF50, #45a049);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 2rem;
+    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+    animation: scaleIn 0.5s ease-out;
+}
+
+.success-icon i {
+    color: white;
+    animation: checkmark 0.5s ease-out 0.5s both;
+}
+
+.main-title {
+    font-size: 2.5rem;
+    color: #ffffff;
+    font-weight: 700;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    font-family: 'Playfair Display', serif;
+    margin-bottom: 1rem;
+}
+
+.decorative-line {
+    width: 150px;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, #4CAF50, transparent);
+    margin: 1.5rem auto;
+}
+
+.message {
+    color: #ffffff;
+    font-size: 1.2rem;
+    margin-bottom: 0.5rem;
+}
+
+.sub-message {
+    color: #e0e0e0;
+    font-size: 1.1rem;
+    margin-bottom: 2rem;
+}
+
+.home-button {
+    background: linear-gradient(45deg, #4CAF50, #45a049);
+    color: white;
+    text-decoration: none;
+    border: none;
+    padding: 1rem 2rem;
+    border-radius: 50px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.home-button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
+    color: white;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes scaleIn {
+    from {
+        transform: scale(0);
+    }
+    to {
+        transform: scale(1);
+    }
+}
+
+@keyframes checkmark {
+    from {
+        opacity: 0;
+        transform: scale(0.5);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .success-card {
+        margin: 1rem;
+        padding: 2rem 1.5rem;
+    }
+    .main-title {
+        font-size: 2rem;
+    }
+    .success-icon {
+        width: 100px;
+        height: 100px;
+    }
+}
+</style>
+{% endblock %}

@@ -1,0 +1,329 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Give a Tip{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-success text-white">
+                    <h3 class="mb-0">Tip Your Waiter</h3>
+                </div>
+                <div class="card-body">
+                    {% if waiter %}
+                        <!-- Single Waiter View -->
+                        <div class="waiter-info text-center mb-4">
+                            <div class="waiter-photo mb-3">
+                                {% if waiter.photo %}
+                                    <img src="{{ waiter.photo.url }}" alt="{{ waiter.full_name }}" class="rounded-circle" width="100" height="100" style="object-fit: cover;">
+                                {% else %}
+                                    <div class="placeholder-photo rounded-circle bg-secondary d-flex align-items-center justify-content-center" style="width: 100px; height: 100px; margin: 0 auto;">
+                                        <i class="fas fa-user text-white fa-2x"></i>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <h4 class="mb-2">{{ waiter.full_name }}</h4>
+                            <div class="rating mb-2">
+                                <span class="text-warning">★</span>
+                                <span>{{ avg_rating|floatformat:1 }}</span>
+                                <span class="text-muted">({{ review_count }} reviews)</span>
+                            </div>
+                            {% if bill %}
+                                <div class="bill-info text-muted mb-3">
+                                    <small>Bill #{{ bill.bill_number }}</small>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <!-- Multiple Waiters View -->
+                        <div class="waiters-list mb-4">
+                            <h5 class="mb-3">Select Waiter</h5>
+                            <div class="row g-3">
+                                {% for waiter in waiters %}
+                                    <div class="col-md-6">
+                                        <div class="card waiter-card h-100" onclick="selectWaiter({{ waiter.id }})">
+                                            <div class="card-body">
+                                                <div class="d-flex align-items-center">
+                                                    <div class="waiter-photo me-3">
+                                                        {% if waiter.photo %}
+                                                            <img src="{{ waiter.photo.url }}" alt="{{ waiter.full_name }}" class="rounded-circle" width="60" height="60" style="object-fit: cover;">
+                                                        {% else %}
+                                                            <div class="placeholder-photo rounded-circle bg-secondary d-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                                                                <i class="fas fa-user text-white"></i>
+                                                            </div>
+                                                        {% endif %}
+                                                    </div>
+                                                    <div>
+                                                        <h6 class="mb-1">{{ waiter.full_name }}</h6>
+                                                        <small class="text-muted">Since {{ waiter.joining_date|date:"M Y" }}</small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    {% if waiter %}
+                        <div class="tip-amount-section mb-4">
+                            <h5 class="mb-3">Select Tip Amount</h5>
+                            <div class="btn-group w-100 mb-3" role="group">
+                                <button type="button" class="btn btn-outline-success tip-btn" data-amount="50">₹50</button>
+                                <button type="button" class="btn btn-outline-success tip-btn" data-amount="100">₹100</button>
+                                <button type="button" class="btn btn-outline-success tip-btn" data-amount="200">₹200</button>
+                                <button type="button" class="btn btn-outline-success tip-btn" data-amount="500">₹500</button>
+                            </div>
+                            <div class="input-group">
+                                <span class="input-group-text">₹</span>
+                                <input type="number" class="form-control" id="customAmount" placeholder="Enter custom amount">
+                            </div>
+                        </div>
+
+                        <div class="payment-method-section mb-4">
+                            <h5 class="mb-3">Select Payment Method</h5>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="payment-method" id="card-payment" value="card" checked>
+                                <label class="btn btn-outline-success" for="card-payment">
+                                    <i class="fas fa-credit-card me-2"></i>Card
+                                </label>
+                                
+                                <input type="radio" class="btn-check" name="payment-method" id="upi-payment" value="upi">
+                                <label class="btn btn-outline-success" for="upi-payment">
+                                    <i class="fas fa-qrcode me-2"></i>UPI
+                                </label>
+                            </div>
+                        </div>
+
+                        <div id="card-payment-section">
+                            <div id="card-element" class="mb-3">
+                                <!-- Stripe card element will be inserted here -->
+                            </div>
+                            <div id="card-errors" class="text-danger mb-3"></div>
+                        </div>
+
+                        <div id="upi-payment-section" class="text-center" style="display: none;">
+                            <div id="qr-code" class="mb-3">
+                                <!-- QR code will be inserted here -->
+                            </div>
+                            <p class="text-muted mb-3">Scan the QR code with any UPI app to pay</p>
+                            <div id="payment-status" class="alert" style="display: none;"></div>
+                        </div>
+
+                        <button id="submit-payment" class="btn btn-success w-100">
+                            Pay Tip
+                        </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+    // Initialize Stripe with just the public key
+    const stripe = Stripe('{{ stripe_public_key }}');
+    const elements = stripe.elements();
+    const card = elements.create('card');
+    
+    {% if waiter %}
+        const waiterId = {{ waiter.id }};
+        card.mount('#card-element');
+        
+        // Handle card errors
+        card.addEventListener('change', function(event) {
+            const displayError = document.getElementById('card-errors');
+            if (event.error) {
+                displayError.textContent = event.error.message;
+            } else {
+                displayError.textContent = '';
+            }
+        });
+
+        // Handle tip amount selection
+        let selectedAmount = null;
+        document.querySelectorAll('.tip-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.tip-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                selectedAmount = parseFloat(this.dataset.amount);
+                document.getElementById('customAmount').value = '';
+            });
+        });
+
+        document.getElementById('customAmount').addEventListener('input', function() {
+            document.querySelectorAll('.tip-btn').forEach(btn => btn.classList.remove('active'));
+            selectedAmount = parseFloat(this.value) || null;
+        });
+
+        // Handle payment method selection
+        document.querySelectorAll('input[name="payment-method"]').forEach(input => {
+            input.addEventListener('change', function() {
+                const cardSection = document.getElementById('card-payment-section');
+                const upiSection = document.getElementById('upi-payment-section');
+                
+                if (this.value === 'card') {
+                    cardSection.style.display = 'block';
+                    upiSection.style.display = 'none';
+                } else {
+                    cardSection.style.display = 'none';
+                    upiSection.style.display = 'block';
+                }
+            });
+        });
+
+        // Handle payment submission
+        document.getElementById('submit-payment').addEventListener('click', async function() {
+            const amount = selectedAmount || parseFloat(document.getElementById('customAmount').value);
+            if (!amount || amount <= 0) {
+                alert('Please select or enter a valid tip amount');
+                return;
+            }
+
+            const paymentMethod = document.querySelector('input[name="payment-method"]:checked').value;
+            
+            if (paymentMethod === 'card') {
+                // Handle card payment
+                try {
+                    const response = await fetch('/process-tip/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        },
+                        body: JSON.stringify({
+                            waiter_id: waiterId,
+                            amount: amount,
+                            payment_method: 'card'
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        const result = await stripe.confirmCardPayment(data.clientSecret, {
+                            payment_method: {
+                                card: card,
+                            }
+                        });
+                        
+                        if (result.error) {
+                            document.getElementById('card-errors').textContent = result.error.message;
+                        } else {
+                            window.location.href = '{% url "restaurant:tip_success" %}';
+                        }
+                    } else {
+                        throw new Error(data.error);
+                    }
+                } catch (error) {
+                    document.getElementById('card-errors').textContent = error.message;
+                }
+            } else {
+                // Handle UPI payment
+                try {
+                    const response = await fetch('/generate-tip-upi-qr/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        },
+                        body: JSON.stringify({
+                            waiter_id: waiterId,
+                            amount: amount
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Failed to generate QR code');
+                    }
+                    
+                    const data = await response.json();
+                    
+                    // Display QR code
+                    const qrCode = document.getElementById('qr-code');
+                    qrCode.innerHTML = `<img src="data:image/png;base64,${data.qr_code}" class="img-fluid">`;
+                    
+                    // Show payment status
+                    const statusElement = document.getElementById('payment-status');
+                    statusElement.className = 'alert alert-info';
+                    statusElement.textContent = 'Waiting for payment...';
+                    statusElement.style.display = 'block';
+                    
+                    // Start polling for payment status
+                    const pollPayment = async () => {
+                        try {
+                            const statusResponse = await fetch('/verify-tip-payment/', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRFToken': '{{ csrf_token }}'
+                                },
+                                body: JSON.stringify({
+                                    reference_id: data.reference_id
+                                })
+                            });
+                            
+                            if (!statusResponse.ok) {
+                                throw new Error('Failed to verify payment');
+                            }
+                            
+                            const statusData = await statusResponse.json();
+                            
+                            if (statusData.status === 'success') {
+                                statusElement.className = 'alert alert-success';
+                                statusElement.textContent = 'Payment successful!';
+                                setTimeout(() => {
+                                    window.location.href = '{% url "restaurant:tip_success" %}';
+                                }, 2000);
+                                return;
+                            }
+                            
+                            setTimeout(pollPayment, 5000);
+                        } catch (error) {
+                            statusElement.className = 'alert alert-danger';
+                            statusElement.textContent = 'Error checking payment status: ' + error.message;
+                        }
+                    };
+                    
+                    pollPayment();
+                } catch (error) {
+                    const statusElement = document.getElementById('payment-status');
+                    statusElement.className = 'alert alert-danger';
+                    statusElement.textContent = 'Error: ' + error.message;
+                    statusElement.style.display = 'block';
+                }
+            }
+        });
+    {% else %}
+        // Handle waiter selection
+        function selectWaiter(waiterId) {
+            if (!waiterId) {
+                alert('Invalid waiter selection');
+                return;
+            }
+            window.location.href = `/direct-tip/?waiter_id=${waiterId}`;
+        }
+    {% endif %}
+</script>
+
+<style>
+    .waiter-card {
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+    }
+    .waiter-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .placeholder-photo {
+        border: 2px solid #fff;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+</style>
+{% endblock %}

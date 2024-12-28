@@ -1,0 +1,244 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Restaurant Options{% endblock %}
+
+{% block content %}
+<div class="options-container">
+    <div class="background-overlay"></div>
+    <div class="content-wrapper">
+        <div class="header-section">
+            <i class="fas fa-star fa-2x text-warning mb-3"></i>
+            <h1 class="main-title">Choose Your Option</h1>
+            <div class="decorative-line"></div>
+        </div>
+
+        <div class="options-grid">
+            <!-- Billing Option Card -->
+            <div class="option-card">
+                <div class="card-inner">
+                    <div class="card-front">
+                        <div class="icon-container">
+                            <i class="fas fa-receipt"></i>
+                        </div>
+                        <h3>Pay Your Bill</h3>
+                        <p>Quick and secure payment</p>
+                    </div>
+                    <div class="card-back">
+                        <h3>Bill Payment</h3>
+                        <p>Pay your restaurant bill using card or UPI</p>
+                        <a href="{% url 'restaurant:billing' %}" class="action-button">
+                            Pay Now
+                            <i class="fas fa-arrow-right ms-2"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tipping Option Card -->
+            <div class="option-card">
+                <div class="card-inner">
+                    <div class="card-front">
+                        <div class="icon-container">
+                            <i class="fas fa-hand-holding-usd"></i>
+                        </div>
+                        <h3>Tip Your Waiter</h3>
+                        <p>Show your appreciation</p>
+                    </div>
+                    <div class="card-back">
+                        <h3>Waiter Tip</h3>
+                        <p>Appreciate your waiter with a generous tip</p>
+                        <a href="{% url 'restaurant:waiter_tip' %}" class="action-button">
+                            Give Tip
+                            <i class="fas fa-arrow-right ms-2"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.options-container {
+    min-height: 100vh;
+    background: linear-gradient(45deg, #0a192f 0%, #20314e 100%);
+    padding: 4rem 2rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.background-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg width="20" height="20" xmlns="http://www.w3.org/2000/svg"><rect width="20" height="20" fill="none"/><circle cx="3" cy="3" r="0.5" fill="rgba(255,255,255,0.1)"/></svg>') repeat;
+    opacity: 0.5;
+    animation: fadeIn 2s ease-in;
+}
+
+.content-wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.header-section {
+    text-align: center;
+    margin-bottom: 4rem;
+    animation: slideDown 1s ease-out;
+}
+
+.main-title {
+    font-size: 3rem;
+    color: #ffffff;
+    font-weight: 700;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    margin: 1rem 0;
+    font-family: 'Playfair Display', serif;
+}
+
+.decorative-line {
+    width: 150px;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, #ffd700, transparent);
+    margin: 1.5rem auto;
+}
+
+.options-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+    padding: 1rem;
+    animation: fadeIn 1s ease-out;
+}
+
+.option-card {
+    perspective: 1500px;
+    height: 400px;
+}
+
+.card-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    text-align: center;
+    transition: transform 0.8s;
+    transform-style: preserve-3d;
+    cursor: pointer;
+}
+
+.option-card:hover .card-inner {
+    transform: rotateY(180deg);
+}
+
+.card-front, .card-back {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+    border-radius: 15px;
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.card-back {
+    transform: rotateY(180deg);
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.icon-container {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(45deg, #ffd700, #ffa500);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+}
+
+.icon-container i {
+    font-size: 2rem;
+    color: #ffffff;
+}
+
+.option-card h3 {
+    color: #ffffff;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    font-weight: 600;
+}
+
+.option-card p {
+    color: #e0e0e0;
+    font-size: 1.1rem;
+    margin-bottom: 1.5rem;
+}
+
+.action-button {
+    display: inline-block;
+    padding: 0.8rem 2rem;
+    font-size: 1.1rem;
+    color: #ffffff;
+    background: linear-gradient(45deg, #ffd700, #ffa500);
+    border: none;
+    border-radius: 50px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+    margin-top: 1rem;
+}
+
+.action-button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(255, 215, 0, 0.4);
+    color: #ffffff;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .main-title {
+        font-size: 2.5rem;
+    }
+    .options-grid {
+        grid-template-columns: 1fr;
+        padding: 0.5rem;
+    }
+    .option-card {
+        height: 350px;
+    }
+}
+</style>
+{% endblock %}

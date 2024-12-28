@@ -1,0 +1,509 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Restaurant Bill Payment{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="text-center">Restaurant Bill Payment</h3>
+                </div>
+                <div class="card-body">
+                    <form id="payment-form">
+                        <div class="form-group mb-3">
+                            <label for="bill_number">Bill Number</label>
+                            <input type="text" class="form-control" id="bill_number" readonly>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label for="table_number">Table Number</label>
+                            <input type="number" class="form-control" id="table_number" value="1" min="1" required>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label for="amount">Amount (₹)</label>
+                            <input type="number" class="form-control" id="amount" step="0.01" required>
+                        </div>
+                        
+                        <div class="payment-methods mb-4">
+                            <h4 class="mb-3">Select Payment Method</h4>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <div class="card payment-method-card" onclick="selectPaymentMethod('card')">
+                                        <div class="card-body text-center">
+                                            <i class="fas fa-credit-card fa-2x mb-2"></i>
+                                            <h5>Card Payment</h5>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <div class="card payment-method-card" onclick="selectPaymentMethod('upi')">
+                                        <div class="card-body text-center">
+                                            <i class="fas fa-mobile-alt fa-2x mb-2"></i>
+                                            <h5>UPI Payment</h5>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Card Payment Form -->
+                        <div id="card-payment-section" style="display: none;">
+                            <div id="card-element" class="form-control mb-3"></div>
+                            <div id="card-errors" class="text-danger mb-3"></div>
+                        </div>
+
+                        <!-- UPI Payment Section -->
+                        <div id="upi-payment-section" style="display: none;">
+                            <div class="mb-3">
+                                <button type="button" class="btn btn-primary btn-block w-100" onclick="showUpiQR()">
+                                    <i class="fas fa-qrcode me-2"></i>Show UPI QR Code
+                                </button>
+                            </div>
+                            <div id="upi-qr-container" class="text-center" style="display: none;">
+                                <img id="upi-qr-code" class="img-fluid mb-3" style="max-width: 200px;">
+                                <p id="upi-payment-link" class="mb-3"></p>
+                                <button type="button" class="btn btn-success" onclick="verifyUpiPayment()">
+                                    I've completed the payment
+                                </button>
+                            </div>
+                        </div>
+
+                        <button id="submit-button" class="btn btn-primary btn-lg w-100 mt-3" style="display: none;">
+                            Pay Now
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- UPI QR Code Modal -->
+<div class="modal fade" id="upiQRModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Scan QR Code to Pay</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div class="amount-display mb-3">
+                    <h4>Amount to Pay: ₹<span id="modal-amount">0.00</span></h4>
+                </div>
+                <img id="modal-upi-qr-code" class="img-fluid mb-3" style="max-width: 300px;">
+                <p id="modal-upi-payment-link" class="mb-3"></p>
+                <div class="supported-apps mb-3">
+                    <p class="text-muted">Scan with any UPI app:</p>
+                    <div class="d-flex justify-content-center gap-3">
+                        <img src="{% static 'images/gpay.png' %}" alt="Google Pay" style="height: 30px;">
+                        <img src="{% static 'images/paytm.png' %}" alt="Paytm" style="height: 30px;">
+                        <img src="{% static 'images/phonepay.png' %}" alt="Phonepe" style="height: 30px;">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-success" onclick="verifyUpiPayment()">
+                    I've completed the payment
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+    let stripe;
+    let elements;
+    let card;
+    let selectedPaymentMethod = null;
+    let checkPaymentInterval;
+
+    // Generate a random bill number when the page loads
+    function generateBillNumber() {
+        return Math.random().toString(36).substring(2, 10).toUpperCase();
+    }
+
+    // Set the bill number when the page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('bill_number').value = generateBillNumber();
+    });
+
+    function initializeStripe(publicKey) {
+        stripe = Stripe(publicKey);
+        elements = stripe.elements();
+        card = elements.create('card');
+        card.mount('#card-element');
+        
+        card.addEventListener('change', function(event) {
+            let displayError = document.getElementById('card-errors');
+            if (event.error) {
+                displayError.textContent = event.error.message;
+            } else {
+                displayError.textContent = '';
+            }
+        });
+    }
+
+    // Initialize with the public key from Django
+    initializeStripe('{{ stripe_public_key }}');
+
+    function selectPaymentMethod(method) {
+        selectedPaymentMethod = method;
+        document.querySelectorAll('.payment-method-card').forEach(card => {
+            card.classList.remove('selected');
+        });
+        event.currentTarget.classList.add('selected');
+
+        // Show/hide relevant payment sections
+        document.getElementById('card-payment-section').style.display = method === 'card' ? 'block' : 'none';
+        document.getElementById('upi-payment-section').style.display = method === 'upi' ? 'block' : 'none';
+        document.getElementById('submit-button').style.display = method === 'card' ? 'block' : 'none';
+    }
+
+    async function showUpiQR() {
+        const amount = document.getElementById('amount').value;
+        const billNumber = document.getElementById('bill_number').value;
+        const tableNumber = document.getElementById('table_number').value;
+        
+        if (!amount || !billNumber || !tableNumber) {
+            alert('Please enter bill number, table number and amount');
+            return;
+        }
+
+        try {
+            const response = await fetch('{% url "restaurant:generate_bill_upi_qr" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({ 
+                    amount: amount,
+                    bill_number: billNumber,
+                    table_number: tableNumber
+                })
+            });
+
+            const data = await response.json();
+            if (data.qr_code) {
+                // Create data URL for QR code
+                const qrImageSrc = `data:image/png;base64,${data.qr_code}`;
+                
+                // Update QR code in the form
+                document.getElementById('upi-qr-code').src = qrImageSrc;
+                document.getElementById('upi-payment-link').textContent = data.upi_string || '';
+                document.getElementById('upi-qr-container').style.display = 'block';
+
+                // Update modal
+                document.getElementById('modal-amount').textContent = parseFloat(amount).toFixed(2);
+                document.getElementById('modal-upi-qr-code').src = qrImageSrc;
+                document.getElementById('modal-upi-payment-link').textContent = data.upi_string || '';
+                
+                // Show modal
+                new bootstrap.Modal(document.getElementById('upiQRModal')).show();
+            } else {
+                throw new Error('QR code not received');
+            }
+        } catch (error) {
+            console.error('Error generating UPI QR:', error);
+            alert('Error generating UPI QR code. Please try again.');
+        }
+    }
+
+    async function verifyUpiPayment() {
+        const billNumber = document.getElementById('bill_number').value;
+        
+        try {
+            const response = await fetch('{% url "restaurant:verify_bill_payment" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    bill_number: billNumber
+                })
+            });
+
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                // Payment verification successful
+                clearInterval(checkPaymentInterval);
+                alert('Payment successful!');
+                // Redirect to success page
+                window.location.href = data.redirect_url;
+            } else {
+                alert('Payment verification failed. Please try again.');
+            }
+        } catch (error) {
+            console.error('Error verifying payment:', error);
+            alert('Error verifying payment. Please try again.');
+        }
+    }
+
+    document.getElementById('payment-form').addEventListener('submit', async function(event) {
+        event.preventDefault();
+        
+        if (!selectedPaymentMethod) {
+            alert('Please select a payment method');
+            return;
+        }
+
+        const amount = parseFloat(document.getElementById('amount').value);
+        const tableNumber = parseInt(document.getElementById('table_number').value);
+        const billNumber = document.getElementById('bill_number').value;
+
+        if (!amount || !tableNumber) {
+            alert('Please fill in all required fields');
+            return;
+        }
+
+        if (selectedPaymentMethod === 'card') {
+            const submitButton = document.getElementById('submit-button');
+            submitButton.disabled = true;
+            submitButton.textContent = 'Processing...';
+
+            try {
+                // Create payment intent
+                const response = await fetch('/process-payment/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({
+                        amount: amount,
+                        table_number: tableNumber,
+                        payment_method: 'card'
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    const result = await stripe.confirmCardPayment(data.clientSecret, {
+                        payment_method: {
+                            card: card,
+                            billing_details: {
+                                name: 'Customer Payment'
+                            }
+                        }
+                    });
+
+                    if (result.error) {
+                        // Handle error
+                        const errorDiv = document.getElementById('card-errors');
+                        errorDiv.textContent = result.error.message;
+                        submitButton.disabled = false;
+                        submitButton.textContent = 'Pay Now';
+                    } else {
+                        // Payment successful
+                        window.location.href = '/payment/success/';
+                    }
+                } else {
+                    throw new Error(data.error || 'Payment processing failed');
+                }
+            } catch (error) {
+                const errorDiv = document.getElementById('card-errors');
+                errorDiv.textContent = error.message;
+                submitButton.disabled = false;
+                submitButton.textContent = 'Pay Now';
+            }
+        }
+    });
+</script>
+
+<style>
+    body {
+        background: linear-gradient(45deg, #0a192f 0%, #20314e 100%);
+    }
+
+    .container {
+        position: relative;
+        z-index: 1;
+    }
+
+    .card {
+        background: rgba(255, 255, 255, 0.95);
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        backdrop-filter: blur(10px);
+        transition: all 0.3s ease;
+    }
+
+    .card-header {
+        background: linear-gradient(45deg, #ffd700, #ffa500);
+        border: none;
+        border-radius: 15px 15px 0 0 !important;
+        padding: 1.5rem;
+    }
+
+    .card-header h3 {
+        color: white;
+        font-family: 'Playfair Display', serif;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        margin: 0;
+    }
+
+    .form-control {
+        border-radius: 50px;
+        padding: 0.75rem 1.2rem;
+        border: 2px solid rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+        box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.2);
+        border-color: #ffd700;
+    }
+
+    .payment-methods {
+        margin-bottom: 2rem;
+    }
+
+    .payment-method-card {
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border-radius: 15px;
+        border: 2px solid transparent;
+        background: white;
+        overflow: hidden;
+    }
+    
+    .payment-method-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    }
+    
+    .payment-method-card.selected {
+        border-color: #ffd700;
+        box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.3);
+    }
+
+    .payment-method-card .card-body {
+        padding: 2rem 1rem;
+    }
+
+    .payment-method-card i {
+        color: #ffd700;
+        transition: all 0.3s ease;
+    }
+
+    .payment-method-card:hover i {
+        transform: scale(1.1);
+    }
+
+    .payment-method-card h5 {
+        color: #2c3e50;
+        margin-top: 1rem;
+        font-weight: 600;
+    }
+
+    .btn-primary {
+        background: linear-gradient(45deg, #ffd700, #ffa500);
+        border: none;
+        border-radius: 50px;
+        padding: 0.8rem 2rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(255, 215, 0, 0.4);
+        background: linear-gradient(45deg, #ffa500, #ffd700);
+    }
+
+    .btn-success {
+        border-radius: 50px;
+        padding: 0.8rem 2rem;
+        font-weight: 600;
+    }
+
+    #card-element {
+        padding: 1rem;
+        border-radius: 10px;
+        border: 2px solid rgba(0, 0, 0, 0.1);
+        background: #f8f9fa;
+    }
+
+    .modal-content {
+        border-radius: 20px;
+        border: none;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    }
+
+    .modal-header {
+        background: linear-gradient(45deg, #ffd700, #ffa500);
+        border-radius: 20px 20px 0 0;
+        border: none;
+    }
+
+    .modal-header .modal-title {
+        color: white;
+        font-weight: 600;
+    }
+
+    .modal-body {
+        padding: 2rem;
+    }
+
+    .amount-display {
+        background: rgba(255, 215, 0, 0.1);
+        padding: 1rem;
+        border-radius: 10px;
+        margin-bottom: 2rem;
+    }
+
+    .supported-apps img {
+        transition: all 0.3s ease;
+    }
+
+    .supported-apps img:hover {
+        transform: scale(1.1);
+    }
+
+    /* Add decorative elements */
+    .card::before {
+        content: '';
+        position: absolute;
+        top: -10px;
+        left: -10px;
+        right: -10px;
+        bottom: -10px;
+        border-radius: 20px;
+        background: linear-gradient(45deg, #ffd700, transparent, #ffa500);
+        z-index: -1;
+        opacity: 0.1;
+        filter: blur(20px);
+    }
+
+    .form-group {
+        position: relative;
+    }
+
+    .form-group label {
+        color: #2c3e50;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .card-header h3 {
+            font-size: 1.5rem;
+        }
+        
+        .payment-method-card {
+            margin-bottom: 1rem;
+        }
+    }
+</style>
+{% endblock %}

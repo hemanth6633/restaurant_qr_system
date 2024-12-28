@@ -1,0 +1,631 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Tip Your Waiter{% endblock %}
+
+{% block content %}
+<div class="waiter-container">
+    <div class="background-overlay"></div>
+    <div class="content-wrapper">
+        <div class="header-section">
+            <h1 class="main-title">Tip Your Waiter</h1>
+            <div class="decorative-line"></div>
+            <p class="subtitle">Show your appreciation for great service</p>
+        </div>
+
+        <div class="waiters-grid">
+            {% for waiter in waiters %}
+            <div class="waiter-card" data-waiter-id="{{ waiter.id }}" data-waiter-name="{{ waiter.full_name }}">
+                <div class="waiter-image">
+                    {% if waiter.photo and waiter.photo.name %}
+                        <img src="{{ waiter.photo.url }}" alt="{{ waiter.full_name }}">
+                    {% else %}
+                        <i class="fas fa-user-circle"></i>
+                    {% endif %}
+                </div>
+                <div class="waiter-info">
+                    <h3>{{ waiter.full_name }}</h3>
+                    <div class="rating">
+                        {% if waiter.avg_rating %}
+                            {% for i in "12345"|make_list %}
+                                {% if forloop.counter <= waiter.avg_rating %}
+                                    <i class="fas fa-star"></i>
+                                {% else %}
+                                    <i class="far fa-star"></i>
+                                {% endif %}
+                            {% endfor %}
+                            ({{ waiter.review_count }} reviews)
+                        {% else %}
+                            <span class="text-muted">No reviews yet</span>
+                        {% endif %}
+                    </div>
+                    <button class="tip-button select-waiter" data-bs-toggle="modal" data-bs-target="#tipModal">
+                        Give Tip
+                        <i class="fas fa-heart ms-2"></i>
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Tip Modal -->
+<div class="modal fade" id="tipModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Tip Your Waiter</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <h6 class="selected-waiter-name mb-4"></h6>
+                
+                <div class="mb-4">
+                    <label class="form-label">Select Amount:</label>
+                    <div class="btn-group w-100" role="group">
+                        <button type="button" class="btn btn-outline-primary tip-amount" data-amount="50">₹50</button>
+                        <button type="button" class="btn btn-outline-primary tip-amount" data-amount="100">₹100</button>
+                        <button type="button" class="btn btn-outline-primary tip-amount" data-amount="200">₹200</button>
+                        <button type="button" class="btn btn-outline-primary tip-amount" data-amount="500">₹500</button>
+                    </div>
+                    <div class="mt-3">
+                        <label class="form-label">Or enter custom amount:</label>
+                        <input type="number" class="form-control" id="customAmount" placeholder="Enter amount">
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">Payment Method:</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="paymentMethod" id="cardPayment" value="card" checked>
+                        <label class="form-check-label" for="cardPayment">
+                            <i class="fas fa-credit-card"></i> Card Payment
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="paymentMethod" id="upiPayment" value="upi">
+                        <label class="form-check-label" for="upiPayment">
+                            <i class="fas fa-qrcode"></i> UPI Payment
+                        </label>
+                    </div>
+                </div>
+
+                <div id="cardPaymentSection">
+                    <div id="card-element" class="mb-3">
+                        <!-- Stripe Elements will be inserted here -->
+                    </div>
+                    <div id="card-errors" class="text-danger mb-3"></div>
+                </div>
+
+                <div id="upiPaymentSection" class="d-none">
+                    <div class="text-center">
+                        <div id="qr-container" class="mb-3">
+                            <img id="qr-code" src="" alt="UPI QR Code" class="img-fluid" style="max-width: 200px;">
+                        </div>
+                        <p class="mb-2">Scan QR code to pay via UPI</p>
+                        <button class="btn btn-outline-primary btn-sm copy-upi mb-3" data-upi="">
+                            <i class="fas fa-copy"></i> Copy UPI ID
+                        </button>
+                        <div class="alert alert-info">
+                            Payment verification is automatic. Please wait after making the payment.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="submitTip">Pay Tip</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Modal -->
+<div class="modal fade" id="loadingModal" data-bs-backdrop="static" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center py-4">
+                <div class="spinner-border text-primary mb-3" role="status"></div>
+                <h5 class="mb-0">Processing your payment...</h5>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+    // Initialize Stripe with your publishable key
+    const stripe = Stripe('{{ stripe_public_key }}');
+    const elements = stripe.elements();
+    
+    // Create and mount the card element
+    const cardElement = elements.create('card', {
+        style: {
+            base: {
+                fontSize: '16px',
+                color: '#32325d',
+                '::placeholder': {
+                    color: '#aab7c4'
+                }
+            },
+            invalid: {
+                color: '#fa755a',
+                iconColor: '#fa755a'
+            }
+        }
+    });
+    cardElement.mount('#card-element');
+    
+    // Handle card element errors
+    cardElement.on('change', function(event) {
+        const displayError = document.getElementById('card-errors');
+        if (event.error) {
+            displayError.textContent = event.error.message;
+        } else {
+            displayError.textContent = '';
+        }
+    });
+    
+    let selectedWaiter = null;
+    let selectedAmount = null;
+    
+    // Handle waiter selection
+    document.querySelectorAll('.select-waiter').forEach(button => {
+        button.addEventListener('click', function() {
+            const card = this.closest('.waiter-card');
+            selectedWaiter = {
+                id: card.dataset.waiterId,
+                name: card.dataset.waiterName
+            };
+            document.querySelector('.selected-waiter-name').textContent = `Tipping ${selectedWaiter.name}`;
+        });
+    });
+    
+    // Handle amount selection
+    document.querySelectorAll('.tip-amount').forEach(button => {
+        button.addEventListener('click', function() {
+            document.querySelectorAll('.tip-amount').forEach(btn => btn.classList.remove('active'));
+            this.classList.add('active');
+            selectedAmount = parseFloat(this.dataset.amount);
+            document.getElementById('customAmount').value = '';
+        });
+    });
+    
+    // Handle custom amount input
+    document.getElementById('customAmount').addEventListener('input', function() {
+        document.querySelectorAll('.tip-amount').forEach(btn => btn.classList.remove('active'));
+        selectedAmount = parseFloat(this.value) || null;
+    });
+    
+    // Payment method switching
+    document.querySelectorAll('input[name="paymentMethod"]').forEach(input => {
+        input.addEventListener('change', function() {
+            const isCard = this.value === 'card';
+            document.getElementById('cardPaymentSection').classList.toggle('d-none', !isCard);
+            document.getElementById('upiPaymentSection').classList.toggle('d-none', isCard);
+            
+            // Reset the submit button text based on payment method
+            document.getElementById('submitTip').textContent = isCard ? 'Pay with Card' : 'Generate QR Code';
+        });
+    });
+
+    // Copy UPI ID functionality
+    document.querySelector('.copy-upi').addEventListener('click', function() {
+        const upiId = this.dataset.upi;
+        navigator.clipboard.writeText(upiId).then(() => {
+            const originalText = this.innerHTML;
+            this.innerHTML = '<i class="fas fa-check"></i> Copied!';
+            setTimeout(() => {
+                this.innerHTML = originalText;
+            }, 2000);
+        });
+    });
+    
+    // Handle tip submission
+    document.getElementById('submitTip').addEventListener('click', async function(event) {
+        const submitButton = this;
+        
+        if (!selectedWaiter || !selectedAmount) {
+            alert('Please select a waiter and tip amount');
+            return;
+        }
+        
+        const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'));
+        const tipModal = bootstrap.Modal.getInstance(document.getElementById('tipModal'));
+        const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
+        
+        // If already in verification mode for UPI, handle verification
+        if (paymentMethod === 'upi' && submitButton.dataset.verificationStarted === 'true') {
+            handleUpiVerification(submitButton.dataset.referenceId, submitButton.dataset.tipId, loadingModal, tipModal);
+            return;
+        }
+        
+        // Disable submit button to prevent double submission
+        submitButton.disabled = true;
+        
+        try {
+            const response = await fetch('/process-tip/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    waiter_id: selectedWaiter.id,
+                    amount: selectedAmount,
+                    payment_method: paymentMethod
+                })
+            });
+
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.error || 'Payment processing failed');
+            }
+            
+            if (paymentMethod === 'card') {
+                // Show loading modal for card payment
+                loadingModal.show();
+                tipModal.hide();
+                
+                try {
+                    // Handle card payment with Stripe
+                    const result = await stripe.confirmCardPayment(data.clientSecret, {
+                        payment_method: {
+                            card: cardElement,
+                        }
+                    });
+                    
+                    if (result.error) {
+                        throw new Error(result.error.message);
+                    }
+                    
+                    if (result.paymentIntent.status === 'succeeded') {
+                        // Update tip status to completed
+                        const updateResponse = await fetch('/verify-tip-payment/', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': getCookie('csrftoken')
+                            },
+                            body: JSON.stringify({
+                                tip_id: data.tip_id,
+                                status: 'COMPLETED'  // Using uppercase to match model choices
+                            })
+                        });
+                        
+                        if (!updateResponse.ok) {
+                            const errorData = await updateResponse.json();
+                            throw new Error(errorData.error || 'Failed to update payment status');
+                        }
+
+                        const updateData = await updateResponse.json();
+                        if (updateData.redirect_url) {
+                            window.location.href = updateData.redirect_url;
+                        } else {
+                            window.location.href = `/tip/review/${data.tip_id}/`;
+                        }
+                    }
+                } catch (error) {
+                    throw error;
+                }
+            } else if (paymentMethod === 'upi') {
+                // For UPI, show QR code and prepare for verification
+                document.getElementById('qr-code').src = `data:image/png;base64,${data.qr_code}`;
+                document.querySelector('.copy-upi').dataset.upi = data.upi_string;
+                
+                // Store reference_id and tip_id for verification
+                submitButton.dataset.referenceId = data.reference_id;
+                submitButton.dataset.tipId = data.tip_id;
+                
+                // Change button text and state
+                submitButton.textContent = 'Verify Payment';
+                submitButton.dataset.verificationStarted = 'true';
+                submitButton.disabled = false;  // Re-enable for UPI verification
+                
+                // Show instructions
+                const instructionsDiv = document.createElement('div');
+                instructionsDiv.className = 'alert alert-info mt-3';
+                instructionsDiv.innerHTML = `
+                    <p class="mb-2"><strong>Instructions:</strong></p>
+                    <ol class="mb-0">
+                        <li>Scan the QR code with your UPI app</li>
+                        <li>Complete the payment in your UPI app</li>
+                        <li>After payment, click "Verify Payment" button</li>
+                    </ol>
+                `;
+                
+                const existingInstructions = document.querySelector('#upiPaymentSection .alert-info');
+                if (existingInstructions) {
+                    existingInstructions.replaceWith(instructionsDiv);
+                } else {
+                    document.querySelector('#upiPaymentSection').appendChild(instructionsDiv);
+                }
+            }
+        } catch (error) {
+            console.error('Payment failed:', error);
+            alert('Payment failed: ' + error.message);
+            loadingModal.hide();
+            tipModal.show();
+            submitButton.disabled = false;  // Re-enable button on error
+        }
+    });
+
+    // Separate function to handle UPI payment verification
+    async function handleUpiVerification(referenceId, tipId, loadingModal, tipModal) {
+        loadingModal.show();
+        tipModal.hide();
+        
+        const verifyPayment = async () => {
+            try {
+                const verifyResponse = await fetch('/verify-tip-payment/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({
+                        reference_id: referenceId,
+                        tip_id: tipId
+                    })
+                });
+                
+                const verifyData = await verifyResponse.json();
+                
+                if (verifyResponse.ok && verifyData.status === 'success') {
+                    // Redirect to the success page with the provided URL
+                    if (verifyData.redirect_url) {
+                        window.location.href = verifyData.redirect_url;
+                    } else {
+                        window.location.href = `/payment/success/?tip_id=${tipId}`;
+                    }
+                    return;
+                } else if (verifyResponse.ok && verifyData.status === 'pending') {
+                    // Continue polling with a longer delay
+                    setTimeout(verifyPayment, 8000); // Check every 8 seconds
+                } else {
+                    throw new Error(verifyData.error || 'Payment verification failed');
+                }
+            } catch (error) {
+                console.error('Payment verification failed:', error);
+                alert('Payment verification failed: ' + error.message);
+                loadingModal.hide();
+                tipModal.show();
+            }
+        };
+        
+        // Start the verification process
+        verifyPayment();
+    }
+    
+    // Helper function to get CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.waiter-container {
+    min-height: 100vh;
+    background: linear-gradient(45deg, #0a192f 0%, #20314e 100%);
+    padding: 2rem;
+    position: relative;
+}
+
+.background-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg width="20" height="20" xmlns="http://www.w3.org/2000/svg"><rect width="20" height="20" fill="none"/><circle cx="3" cy="3" r="0.5" fill="rgba(255,255,255,0.1)"/></svg>') repeat;
+    opacity: 0.5;
+    animation: fadeIn 2s ease-in;
+}
+
+.content-wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.header-section {
+    text-align: center;
+    margin-bottom: 3rem;
+    animation: slideDown 1s ease-out;
+}
+
+.main-title {
+    font-size: 2.5rem;
+    color: #ffffff;
+    font-weight: 700;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    font-family: 'Playfair Display', serif;
+    margin-bottom: 1rem;
+}
+
+.decorative-line {
+    width: 150px;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, #ffd700, transparent);
+    margin: 1.5rem auto;
+}
+
+.subtitle {
+    color: #e0e0e0;
+    font-size: 1.2rem;
+}
+
+.waiters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 2rem;
+    padding: 1rem;
+}
+
+.waiter-card {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    padding: 2rem;
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
+    animation: fadeIn 0.5s ease-out;
+}
+
+.waiter-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    border-color: #ffd700;
+}
+
+.waiter-image {
+    width: 120px;
+    height: 120px;
+    margin: 0 auto 1.5rem;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 3px solid #ffd700;
+    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+}
+
+.waiter-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.waiter-image i {
+    font-size: 4rem;
+    color: #ffd700;
+    line-height: 120px;
+}
+
+.waiter-info h3 {
+    color: #ffffff;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.rating {
+    color: #ffd700;
+    font-size: 1.1rem;
+    margin-bottom: 1.5rem;
+}
+
+.rating i {
+    margin-right: 0.5rem;
+}
+
+.tip-button {
+    background: linear-gradient(45deg, #ffd700, #ffa500);
+    color: white;
+    border: none;
+    padding: 0.8rem 2rem;
+    border-radius: 50px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.tip-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(255, 215, 0, 0.4);
+}
+
+/* Modal Styling */
+.modal-content {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 20px;
+    border: none;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+    background: linear-gradient(45deg, #ffd700, #ffa500);
+    border-radius: 20px 20px 0 0;
+    border: none;
+    padding: 1.5rem;
+}
+
+.modal-title {
+    color: white;
+    font-weight: 600;
+}
+
+.modal-body {
+    padding: 2rem;
+}
+
+.tip-amount-btn {
+    background: rgba(255, 215, 0, 0.1);
+    border: 2px solid #ffd700;
+    color: #2c3e50;
+    padding: 1rem 2rem;
+    border-radius: 50px;
+    margin: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.tip-amount-btn:hover, .tip-amount-btn.selected {
+    background: linear-gradient(45deg, #ffd700, #ffa500);
+    color: white;
+    transform: translateY(-2px);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .main-title {
+        font-size: 2rem;
+    }
+    .waiters-grid {
+        grid-template-columns: 1fr;
+        padding: 0.5rem;
+    }
+    .waiter-card {
+        padding: 1.5rem;
+    }
+}
+</style>
+{% endblock %}
